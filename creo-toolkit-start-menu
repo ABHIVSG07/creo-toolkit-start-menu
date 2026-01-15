@@ -1,0 +1,56 @@
+//creo-toolkit-start-menu
+//#include "visit_iteam.h"
+#include <ProMenuBar.h>
+#include <ProUICmd.h>
+int btn_action_f(uiCmdCmdId command, uiCmdValue* p_value, void* p_push_command_data);
+uiCmdAccessState btn_access_f(uiCmdAccessMode access_mode);
+extern "C" void user_initialize() {
+	uiCmdCmdId action_id;
+	ProMenubarMenuAdd("Start_App", "start_app_label", NULL, PRO_B_TRUE, L"ui_file.txt");
+	ProCmdActionAdd("btn_action", btn_action_f, uiProe2ndImmediate, btn_access_f, PRO_B_TRUE, PRO_B_TRUE, &action_id);
+	ProMenubarmenuPushbuttonAdd("Start_App", "start_button", "start_button_label", "btn_help", NULL, PRO_B_TRUE, action_id, L"ui_file.txt");
+}
+int btn_action_f(uiCmdCmdId command, uiCmdValue* p_value, void* p_push_command_data) {
+	return 0;
+}
+uiCmdAccessState btn_access_f(uiCmdAccessMode access_mode) {
+	return ACCESS_AVAILABLE;
+}
+extern "C" void user_terminate() {
+}
+
+
+
+start_app_label
+Toolkit Menu
+
+start_button_label
+Toolkit Button Label
+
+btn_help
+This is a help text
+
+welcome_msg
+Welcome to Toolkit Automation
+
+Info_msg
+This is an information message
+
+warning_msg
+This is a warning message
+
+prompt_msg
+Please give a response
+
+Critical_msg
+This is a critical message
+
+Error_msg
+An error has occurred
+
+Enter_Radius_value
+Please enter the radius value:
+
+Radius_value_msg
+The Radius value is %f which user can set in model
+
