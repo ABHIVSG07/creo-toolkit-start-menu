@@ -1,0 +1,9 @@
+void log_info(string msg)
+{
+	string filename = "C:\\Users\\91911\\Desktop\\Abhishek Gaikwad\\CREO AUTOMATION\\Toolkit_CreoAutomation_5\\text\\log_info";
+	FILE* log_file = fopen(filename.c_str(), "a");
+	if (!log_file) return;
+	msg += "\n";
+	fprintf(log_file, "%s", msg.c_str());
+	fclose(log_file);
+}
