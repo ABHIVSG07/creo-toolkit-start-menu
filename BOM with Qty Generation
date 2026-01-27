@@ -1,0 +1,143 @@
+// ================== INCLUDE FILES ==================
+#include <ProMenuBar.h>
+#include <ProUICmd.h>
+#include <ProUtil.h>
+#include <ProAssembly.h>
+#include <ProSolid.h>
+#include <ProMdl.h>
+
+#include <string>
+#include <map>
+#include <stdio.h>
+
+using namespace std;
+
+// ================== BOM DATA STRUCTURE ==================
+struct BOMItem
+{
+    string part_name;
+    int quantity;
+};
+
+// Global BOM map
+map<string, BOMItem> bom_map;
+
+                                                       // ================== FUNCTION DECLARATIONS ==================
+int btn_action_f(uiCmdCmdId command, uiCmdValue* p_value, void* p_push_command_data);
+uiCmdAccessState btn_access_f(uiCmdAccessMode access_mode);
+
+ProError assembly_action();
+ProError disp_visit_action(ProAsmcomppath* p_path, ProSolid handle, ProBoolean down, ProAppData app_data);
+
+void export_bom_to_csv();
+void log_info(string msg);
+
+                                                           // ================== INITIALIZE ==================
+extern "C" void user_initialize()
+{
+    uiCmdCmdId action_id;
+    ProMenubarMenuAdd("Start_App","start_app_label",NULL,PRO_B_TRUE,L"ui_file.txt");
+    ProCmdActionAdd("btn_action",btn_action_f,uiProe2ndImmediate, btn_access_f, PRO_B_TRUE,PRO_B_TRUE,&action_id);
+    ProMenubarmenuPushbuttonAdd("Start_App","start_button","start_button_label","btn_help",NULL,PRO_B_TRUE,action_id,L"ui_file.txt");
+}
+
+                                                          // ================== BUTTON ACTION ==================
+int btn_action_f(uiCmdCmdId command, uiCmdValue* p_value, void* p_push_command_data)
+{
+    ProMdl current_mdl;
+    ProMdlType mdl_type;
+    log_info("Welcome");
+    ProMdlCurrentGet(&current_mdl);
+    ProMdlTypeGet(current_mdl, &mdl_type);
+    if (mdl_type == PRO_MDL_PART)
+    {
+        log_info("Current model is a PART");
+    }
+    else if (mdl_type == PRO_MDL_ASSEMBLY)
+    {
+        log_info("Current model is an ASSEMBLY");
+        assembly_action();
+    }
+    return 0;
+}
+
+                                                       // ================== ASSEMBLY TRAVERSAL ==================
+ProError assembly_action()
+{
+    ProMdl current_mdl;
+    // Clear previous BOM data (important)
+    bom_map.clear();
+    ProMdlCurrentGet(&current_mdl);
+    log_info("Starting assembly traversal");
+    ProSolidDispCompVisit((ProSolid)current_mdl,disp_visit_action, NULL,NULL);
+    log_info("Traversal finished");
+    export_bom_to_csv();
+    return PRO_TK_NO_ERROR;
+}
+
+                                                        // ================== VISITOR FUNCTION ==================
+ProError disp_visit_action(ProAsmcomppath* p_path,ProSolid handle,ProBoolean down,ProAppData app_data){
+    ProMdl current_mdl;
+    ProName mdl_name;
+    char part_name[PRO_NAME_SIZE];
+    ProAsmcomppathMdlGet(p_path, &current_mdl);
+    ProMdlNameGet(current_mdl, mdl_name);
+    ProWstringToString(part_name, mdl_name);
+    string pname = part_name;
+    // BOM QUANTITY LOGIC
+    if (bom_map.find(pname) == bom_map.end())
+    {
+        BOMItem item;
+        item.part_name = pname;
+        item.quantity = 1;
+        bom_map[pname] = item;
+        log_info("NEW PART FOUND : " + pname);
+    }
+    else
+    {
+        bom_map[pname].quantity++;
+    }
+    return PRO_TK_NO_ERROR;
+}
+// ================== CSV EXPORT ==================
+void export_bom_to_csv()
+{
+    string file_path ="C:\\Users\\91911\\Desktop\\Abhishek Gaikwad\\CREO AUTOMATION\\PROJECTS\\Project_4\\text\\report.csv";
+    FILE* fp = fopen(file_path.c_str(), "w");
+    if (!fp)
+        return;
+    fprintf(fp, "Item No,Part Name,Quantity\n");
+    int item_no = 1;
+    for (auto& it : bom_map)
+    {
+        fprintf(
+            fp,
+            "%d,%s,%d\n",
+            item_no++,
+            it.second.part_name.c_str(),
+            it.second.quantity
+        );
+    }
+    fclose(fp);
+    log_info("BOM exported successfully to CSV");
+}
+// ================== LOG FUNCTION ==================
+void log_info(string msg)
+{
+    string filename ="C:\\Users\\91911\\Desktop\\Abhishek Gaikwad\\CREO AUTOMATION\\PROJECTS\\Project_4\\text\\log_info.txt";
+    FILE* log_file = fopen(filename.c_str(), "a");
+    if (!log_file)
+        return;
+    msg += "\n";
+    fprintf(log_file, "%s", msg.c_str());
+    fclose(log_file);
+}
+// ================== ACCESS FUNCTION ==================
+uiCmdAccessState btn_access_f(uiCmdAccessMode access_mode)
+{
+    return ACCESS_AVAILABLE;
+}
+// ================== TERMINATE ==================
+extern "C" void user_terminate()
+{
+}
