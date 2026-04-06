@@ -1,0 +1,21 @@
+UI Making
+UI Making
+{
+status = ProUIDialogCreate("smpf","smpf");(ANY UNIQUE NAME,SAME AS UI FILE NAME)
+status = ProUIPushbuttonActivateActionSet("smpf","PushButton1",(ProUIAction)saveflatpat,NULL);
+status = ProUIPushbuttonActivateActionSet("smpf","CommitOK",(ProUIAction)okaction, NULL);
+status = ProUIPushbuttonActivateActionSet("smpf","CommitCancel",(ProUIAction)cancleact, NULL);
+
+
+int id_out;
+status = ProUIDialogActivate("smpf",&id_out);
+status = ProUIDialogDestroy("smpf")
+}
+ProError saveflatpat(){
+ ProUIDialogExit("smpf", 1);
+return PRO_TK_NO_ERROR;
+}
+ProError cancleact(){
+ ProUIDialogExit("smpf", 0);
+return PRO_TK_NO_ERROR;
+}
