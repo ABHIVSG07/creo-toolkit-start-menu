@@ -1,0 +1,167 @@
+#include "slot_creation.h"
+void log_info(string msg);
+ProError cancleact();
+ProError cancleac();
+ProError cancle();
+int CreateDatumPlane_Tangent();
+void slot_creation::slot_create(ProMdl current_mdl) {
+	ProError status;
+	ProMdlType mdl_tyoe;
+	ProMdl mdl;
+	ProModelitem model_item;
+	status = ProMdlCurrentGet(&mdl);
+	if (status !=PRO_TK_NO_ERROR) {
+		log_info("get a part first");
+		status = ProUIDialogCreate("op", "op");// (ANY UNIQUE NAME, SAME AS UI FILE NAME)
+		status = ProUIPushbuttonActivateActionSet("op", "CommitCancel", (ProUIAction)cancleact, NULL);
+		int id_out1;
+		status = ProUIDialogActivate("op", &id_out1);
+		status = ProUIDialogDestroy("op");
+		return;
+	}
+	status = ProMdlTypeGet(mdl,&mdl_tyoe);
+	if (mdl_tyoe != PRO_MDL_PART) {
+		log_info("This is not a model sleect circular model");
+		log_info("get a part first");
+		status = ProUIDialogCreate("oop", "oop");// (ANY UNIQUE NAME, SAME AS UI FILE NAME)
+		status = ProUIPushbuttonActivateActionSet("oop", "CommitCancel", (ProUIAction)cancleac, NULL);
+		int id_out2;
+		status = ProUIDialogActivate("oop", &id_out2);
+		status = ProUIDialogDestroy("oop");
+		return;
+	}
+	CreateDatumPlane_Tangent();
+
+}
+int CreateDatumPlane_Tangent()
+{
+    ProError status;
+    ProSelection* selection;
+    int n_sel;
+
+    ProElement elem_tree = NULL, elem_ftype = NULL;
+    ProElement elem_consts = NULL, elem_const = NULL;
+    ProElement elem_const_type = NULL, elem_ref = NULL;
+    ProElement elem_offset = NULL;
+
+    ProReference ref;
+    ProFeature feature;
+    ProSelection model_sel;
+    ProModelitem model_item;
+    ProAsmcomppath comp_path;
+    ProFeatureCreateOptions* opts = NULL;
+    ProErrorlist errors;
+
+    double offset_dist = 0;
+
+    /* STEP 1: Select surface */
+    status = ProSelect("surface", 1, NULL, NULL, NULL, NULL, &selection, &n_sel);
+
+    if (status != PRO_TK_NO_ERROR || n_sel <= 0)
+    {
+        log_info("Surface selection failed");
+        return status;
+    }
+
+    log_info("Surface selected");
+
+    /* STEP 2: Convert to reference */
+    status = ProSelectionToReference(selection[0], &ref);
+    if (status != PRO_TK_NO_ERROR)
+        return status;
+
+    /* STEP 3: Feature tree */
+    ProElementAlloc(PRO_E_FEATURE_TREE, &elem_tree);
+
+    /* Feature type */
+    ProElementAlloc(PRO_E_FEATURE_TYPE, &elem_ftype);
+    ProElementIntegerSet(elem_ftype, PRO_FEAT_DATUM);
+    ProElemtreeElementAdd(elem_tree, NULL, elem_ftype);
+
+    /* Constraints */
+    ProElementAlloc(PRO_E_DTMPLN_CONSTRAINTS, &elem_consts);
+    ProElemtreeElementAdd(elem_tree, NULL, elem_consts);
+
+    /* Constraint */
+    ProElementAlloc(PRO_E_DTMPLN_CONSTRAINT, &elem_const);
+    ProElemtreeElementAdd(elem_consts, NULL, elem_const);
+
+    /* Constraint type = OFFSET */
+    ProElementAlloc(PRO_E_DTMPLN_CONSTR_TYPE, &elem_const_type);
+    ProElementIntegerSet(elem_const_type, PRO_DTMPLN_OFFS);
+    ProElemtreeElementAdd(elem_const, NULL, elem_const_type);
+
+    /* Reference */
+    ProElementAlloc(PRO_E_DTMPLN_CONSTR_REF, &elem_ref);
+    ProElementReferenceSet(elem_ref, ref);
+    ProElemtreeElementAdd(elem_const, NULL, elem_ref);
+
+    /* Offset */
+    ProElementAlloc(PRO_E_DTMPLN_CONSTR_REF_OFFSET, &elem_offset);
+    ProElementDoubleSet(elem_offset, offset_dist);
+    ProElemtreeElementAdd(elem_const, NULL, elem_offset);
+
+    /* Model selection */
+    ProSelectionAsmcomppathGet(selection[0], &comp_path);
+    ProSelectionModelitemGet(selection[0], &model_item);
+    ProMdlToModelitem(model_item.owner, &model_item);
+
+    ProSelectionAlloc(&comp_path, &model_item, &model_sel);
+
+    /* Create feature */
+    ProArrayAlloc(1, sizeof(ProFeatureCreateOptions), 1, (ProArray*)&opts);
+    opts[0] = PRO_FEAT_CR_NO_OPTS;
+
+    status = ProFeatureWithoptionsCreate(model_sel, elem_tree,
+        opts, PRO_REGEN_NO_FLAGS, &feature, &errors);
+
+    if (status == PRO_TK_NO_ERROR)
+        log_info("Datum plane created successfully");
+    else
+        log_info("Datum creation failed");
+
+    /* Cleanup */
+    ProArrayFree((ProArray*)&opts);
+    ProElementFree(&elem_tree);
+    ProSelectionFree(&model_sel);
+
+    return status;
+
+   
+
+
+    
+    
+}
+
+ProError cancleact() {
+	ProError status;
+	status = ProUIDialogExit("op", 1);
+	return PRO_TK_NO_ERROR;
+
+}
+
+ProError cancleac() {
+	ProError status;
+	status = ProUIDialogExit("oop", 0);
+	return PRO_TK_NO_ERROR;
+
+}
+ProError cancle() {
+	ProError status;
+	status =  ProUIDialogExit("ss", 1);
+	return PRO_TK_NO_ERROR;
+
+}
+
+
+
+void log_info(string msg)
+{
+	string filename = "C:\\Users\\91911\\Desktop\\Abhishek Gaikwad\\CREO AUTOMATION\\PROJECTS\\Slot Creation\\text\\log_info";
+	FILE* log_file = fopen(filename.c_str(), "a");
+	if (!log_file) return;
+	msg += "\n";
+	fprintf(log_file, "%s", msg.c_str());
+	fclose(log_file);
+}
