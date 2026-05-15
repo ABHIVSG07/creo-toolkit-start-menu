@@ -1,0 +1,314 @@
+#include "slotcreationudf.h"
+#include <ProSolidBody.h>
+void log_info(string msg);
+ProError cancle();
+ProError cancleac();
+ProError createslot(ProMdl mdl);
+ProError cancleact();
+void slotcreationudf::slotcreation() {
+    ProError status;
+    ProMdlType mdl_tyoe;
+    ProMdl mdl;
+
+    status = ProMdlCurrentGet(&mdl);
+    if (status != PRO_TK_NO_ERROR)
+    {
+        log_info("get a part first");
+        status = ProUIDialogCreate("op", "op");
+        status = ProUIPushbuttonActivateActionSet("op", "CommitCancel", (ProUIAction)cancleact, NULL);
+        int id_out1;
+        status = ProUIDialogActivate("op", &id_out1);
+        status = ProUIDialogDestroy("op");
+        return;
+    }
+
+    status = ProMdlTypeGet(mdl, &mdl_tyoe);
+    if (mdl_tyoe != PRO_MDL_PART)
+    {
+        log_info("This is not a model select circular model");
+        log_info("get a part first");
+        status = ProUIDialogCreate("oop", "oop");
+        status = ProUIPushbuttonActivateActionSet("oop", "CommitCancel", (ProUIAction)cancleac, NULL);
+        int id_out2;
+        status = ProUIDialogActivate("oop", &id_out2);
+        status = ProUIDialogDestroy("oop");
+        return;
+    }
+
+    createslot(mdl);
+
+
+}
+ProError createslot(ProMdl mdl) {
+    ProError status;
+    ProSelection* selection;
+    int n_sel;
+
+    ProElement elem_tree = NULL, elem_ftype = NULL;
+    ProElement elem_consts = NULL, elem_const = NULL;
+    ProElement elem_const_type = NULL, elem_ref = NULL;
+    ProElement elem_offset = NULL;
+
+    ProReference ref;
+    ProFeature feature;
+    ProSelection model_sel;
+    ProModelitem model_item;
+    ProAsmcomppath comp_path;
+    ProFeatureCreateOptions* opts = NULL;
+    ProErrorlist errors;
+
+    double offset_dist = 0;
+
+    //// STEP 1: Select surface 
+    status = ProSelect("surface", 1, NULL, NULL, NULL, NULL, &selection, &n_sel);
+
+    if (status != PRO_TK_NO_ERROR || n_sel <= 0)
+    {
+        log_info("Surface selection failed");
+        return status  ;
+    }
+
+    log_info("Surface selected");
+
+    ///// STEP 2: Convert to reference 
+    status = ProSelectionToReference(selection[0], &ref);
+    if (status != PRO_TK_NO_ERROR)
+        return status  ;
+
+    ///// STEP 3: Feature tree 
+    status = ProElementAlloc(PRO_E_FEATURE_TREE, &elem_tree);
+    if (status != PRO_TK_NO_ERROR) {
+        log_info("Feature Tree fails");
+        return status ;
+    }
+
+    /////Feature type 
+    status = ProElementAlloc(PRO_E_FEATURE_TYPE, &elem_ftype);
+    if (status != PRO_TK_NO_ERROR) {
+        log_info("Feature type 1 fail");
+        return status;
+    }
+
+    status = ProElementIntegerSet(elem_ftype, PRO_FEAT_DATUM);
+    if (status != PRO_TK_NO_ERROR) {
+        log_info("Feature type 2 fail");
+        return status;
+    }
+
+    status = ProElemtreeElementAdd(elem_tree, NULL, elem_ftype);
+    if (status != PRO_TK_NO_ERROR) {
+        log_info("Feature type 3 fail");
+        return status;
+    }
+
+    ////// Constraints 
+    status = ProElementAlloc(PRO_E_DTMPLN_CONSTRAINTS, &elem_consts);
+    if (status != PRO_TK_NO_ERROR) {
+        log_info("Constraints 1 fail");
+        return status;
+    }
+    status = ProElemtreeElementAdd(elem_tree, NULL, elem_consts);
+    if (status != PRO_TK_NO_ERROR) {
+        log_info("Constraints 2 fail");
+        return status;
+    }
+
+    /////Constraint 
+    status = ProElementAlloc(PRO_E_DTMPLN_CONSTRAINT, &elem_const);
+    if (status != PRO_TK_NO_ERROR) {
+        log_info("Constraint 1 fail");
+        return status;
+    }
+    status = ProElemtreeElementAdd(elem_consts, NULL, elem_const);
+    if (status != PRO_TK_NO_ERROR) {
+        log_info("Constraint 2 fail");
+        return status;
+    }
+    ////Constraint type = OFFSET 
+    status = ProElementAlloc(PRO_E_DTMPLN_CONSTR_TYPE, &elem_const_type);
+    if (status != PRO_TK_NO_ERROR) {
+        log_info("Constraint type = OFFSET 1 Fails");
+        return status;
+    }
+
+    status = ProElementIntegerSet(elem_const_type, PRO_DTMPLN_OFFS);
+    if (status != PRO_TK_NO_ERROR) {
+        log_info("Constraint type = OFFSET 2 Fails");
+        return status;
+    }
+
+    status = ProElemtreeElementAdd(elem_const, NULL, elem_const_type);
+    if (status != PRO_TK_NO_ERROR) {
+        log_info("Constraint type = OFFSET 3 Fails");
+        return status;
+    }
+
+    //// Reference 
+    status = ProElementAlloc(PRO_E_DTMPLN_CONSTR_REF, &elem_ref);
+    if (status != PRO_TK_NO_ERROR) {
+        log_info("Reference 1 Fails");
+        return status;
+    }
+    status = ProElementReferenceSet(elem_ref, ref);
+    if (status != PRO_TK_NO_ERROR) {
+        log_info("Reference 2 Fails");
+        return status;
+    }
+    status = ProElemtreeElementAdd(elem_const, NULL, elem_ref);
+    if (status != PRO_TK_NO_ERROR) {
+        log_info("Reference 3 Fails");
+        return status;
+    }
+
+    ////Offset 
+    status = ProElementAlloc(PRO_E_DTMPLN_CONSTR_REF_OFFSET, &elem_offset);
+    if (status != PRO_TK_NO_ERROR) {
+        log_info("Offset 1 Fails");
+        return status;
+    }
+
+    status = ProElementDoubleSet(elem_offset, offset_dist);
+    if (status != PRO_TK_NO_ERROR) {
+        log_info("Offset 2 Fails");
+        return status;
+    }
+
+    status = ProElemtreeElementAdd(elem_const, NULL, elem_offset);
+    if (status != PRO_TK_NO_ERROR) {
+        log_info("Offset 3 Fails");
+        return status;
+    }
+
+    //// Model selection 
+    status = ProSelectionAsmcomppathGet(selection[0], &comp_path);
+    if (status != PRO_TK_NO_ERROR) {
+        log_info("Model selection 1 FAIL");
+        return status;
+    }
+    status = ProSelectionModelitemGet(selection[0], &model_item);
+    if (status != PRO_TK_NO_ERROR) {
+        log_info("Model selection 2 FAIL");
+        return status;
+    }
+    status = ProMdlToModelitem(model_item.owner, &model_item);
+    if (status != PRO_TK_NO_ERROR) {
+        log_info("Model selection 3 FAIL");
+        return status;
+    }
+    status = ProSelectionAlloc(&comp_path, &model_item, &model_sel);
+    if (status != PRO_TK_NO_ERROR) {
+        log_info("Pro selection allocation fails");
+        return status;
+    }
+
+    //// Create feature 
+    ProArrayAlloc(1, sizeof(ProFeatureCreateOptions), 1, (ProArray*)&opts);
+    opts[0] = PRO_FEAT_CR_NO_OPTS;
+    status = ProFeatureWithoptionsCreate(model_sel, elem_tree, opts, PRO_REGEN_NO_FLAGS, &feature, &errors);
+
+    if (status == PRO_TK_NO_ERROR) {
+        log_info("Datum plane created successfully");
+    }
+    else {
+        log_info("Datum creation failed");
+    }
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    ProUdfdata udf_data;
+   // ProUdfreference udf_refs[3];
+    ProGroup udf_group;
+    ProName gph_name;
+    ProSelection udf_datum_sel;
+    ProSelection* selectionary;
+    int p_n_sels;
+    ProUdfreference reference1, reference2, reference3;
+    ProUdfCreateOption options[] = { PROUDFOPT_EDIT_MENU };
+
+    status = ProUdfdataAlloc(&udf_data);
+    status = ProUdfdataNameSet(udf_data,L"8",NULL);
+    if (status != PRO_TK_NO_ERROR) {
+        log_info("FAIL TO GET FILE");
+        return status;
+    }
+    status = ProUdfdataDimdisplaySet(udf_data, PROUDFDIMDISP_NORMAL);
+    if (status != PRO_TK_NO_ERROR) {
+        log_info("FAIL TO DISPLAY");
+        return status;
+    }
+    status = ProUdfdataScaleSet(udf_data, PROUDFSCALETYPE_SAME_DIMS, 0.0);
+    if (status != PRO_TK_NO_ERROR) {
+        log_info("SCALE SELECTION FAIL");
+        return status;
+    }
+    //Select UDF Referance 
+    status = ProSelect("point,surface",2,NULL,NULL,NULL,NULL,&selectionary,&p_n_sels);
+
+    //UDF Referances =  1
+    status = ProUdfreferenceAlloc(L"POINT", selectionary[0],PRO_B_FALSE,&reference1);
+    status = ProUdfdataReferenceAdd(udf_data, reference1);
+
+    ProSolidBody default_body;
+    ProSelection pselection_default_body;
+    status = ProSolidDefaultBodyGet((ProSolid)mdl, &default_body);
+    status = ProSelectionAlloc(NULL,&default_body,&pselection_default_body);
+    
+    //UDF Referances =  2
+    status = ProUdfreferenceAlloc(L"BODY", pselection_default_body, PRO_B_FALSE, &reference2);
+    status = ProUdfdataReferenceAdd(udf_data, reference2);
+
+    //UDF Referances =  3
+    status = ProUdfreferenceAlloc(L"SURFACE", selectionary[1], PRO_B_FALSE, &reference3);
+    status = ProUdfdataReferenceAdd(udf_data, reference3);
+
+
+    //UDF VAriable Dimensions 
+    ProUdfvardim vardim1;
+    status = ProUdfvardimAlloc(L"d93",40.00, PROUDFVARTYPE_DIM, &vardim1);
+    status = ProUdfdataUdfvardimAdd(udf_data, vardim1);
+
+    ProUdfvardim vardim2;
+    status = ProUdfvardimAlloc(L"d97", 15.00, PROUDFVARTYPE_DIM, &vardim2);
+    status = ProUdfdataUdfvardimAdd(udf_data, vardim2);
+
+    // 8. Create the UDF Feature (SILENT MODE -> 0 options)
+
+    status = ProUdfCreate((ProSolid)mdl, udf_data, NULL, options, 0, &udf_group);
+    ProUdfreferenceFree(reference1);
+    ProUdfreferenceFree(reference2);
+    ProUdfreferenceFree(reference3);
+    ProUdfvardimFree(vardim1);
+    ProUdfvardimFree(vardim2);
+
+
+    return status;
+
+}
+ProError cancleact() {
+    ProError status;
+    status = ProUIDialogExit("op", 1);
+    return PRO_TK_NO_ERROR;
+
+}
+
+ProError cancleac() {
+    ProError status;
+    status = ProUIDialogExit("oop", 0);
+    return PRO_TK_NO_ERROR;
+
+}
+ProError cancle() {
+    ProError status;
+    status = ProUIDialogExit("ss", 1);
+    return PRO_TK_NO_ERROR;
+
+}
+
+void log_info(string msg)
+{
+    string filename = "C:\\Users\\91911\\Desktop\\Abhishek Gaikwad\\CREO AUTOMATION\\Slot Creation Using UDF\\text\\log_info";
+    FILE* log_file = fopen(filename.c_str(), "a");
+    if (!log_file) return;
+    msg += "\n";
+    fprintf(log_file, "%s", msg.c_str());
+    fclose(log_file);
+}
